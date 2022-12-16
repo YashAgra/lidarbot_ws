@@ -1,0 +1,188 @@
+<launch>
+
+	<!-- Run teleop -->
+    <!-- <include file="$(find lidarbot)/launch/lidarbot_teleop.launch"/> -->
+
+  <!-- Commented lidar bcz gazebo is already publishing lidar to scan topic-->
+	<!-- Run lidar.
+    <include file="$(find rplidar_ros)/launch/rplidar.launch"/> -->
+	
+	<!-- Wait for the lidar to start up. -->
+	<!-- <arg name="node_start_delay" default="5.0" />   -->
+
+	<!-- Run the map server --> 
+    <node name="map_server" pkg="map_server" type="map_server" args="$(find lidarbot)/maps/gazebo_map.yaml">
+    </node>
+
+	<!-- Add transformations. -->
+
+	<node pkg="tf" type="static_transform_publisher" name="link_to_laser_bc" args="0 0 0 0 0 0 base_footprint base_scan 100"/>
+  <!-- <node pkg="tf" type="static_transform_publisher" name="map_to_basescan" args="0 0 0 0 0 0 map base_scan 100" /> -->
+  <!--<node pkg="tf" type="static_transform_publisher" name="map_current_to_basefootprint" args="0 0 0 0 0 0 mapcurrent_frame map 100" /> -->
+
+	<!-- 
+		HECTOR STUFF. 
+	-->
+  <!-- Arguments -->
+  <!-- <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+  <arg name="configuration_basename" default="turtlebot3_lds_2d.lua"/> -->
+  <arg name="set_base_frame" default="base_scan"/>
+  <arg name="set_odom_frame" default="odom"/>
+  <arg name="set_map_frame"  default="map"/>
+
+  <!-- Gmapping -->
+  <!-- <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="screen">
+    <remap from="map" to="mapcurrent" />
+    <param name="base_frame" value="$(arg set_base_frame)"/>
+    <param name="odom_frame" value="base_scan"/>
+    <param name="map_frame"  value="mapcurrent_frame"/>
+    <rosparam command="load" file="$(find lidarbot)/config/gmapping_params.yaml" />
+  </node> -->
+
+
+
+<!-- HECTOR SLAM -->
+  <arg name="tf_map_scanmatch_transform_frame_name" default="scanmatcher_frame"/>
+  <arg name="base_frame" default="base_scan"/>
+  <arg name="odom_frame" default="odom"/>
+   <!-- Change below!! Used to be true. -->
+  <arg name="pub_map_odom_transform" default="false"/>
+  <arg name="scan_subscriber_queue_size" default="5"/>
+  <arg name="scan_topic" default="scan"/>
+  <arg name="map_size" default="2048"/>
+  <arg name="pub_odometry" default="true"/>  
+  
+    <node pkg="hector_mapping" type="hector_mapping" name="hector_mapping" output="screen">
+    <param name="pub_odometry" value="$(arg pub_odometry)"/>
+
+    <!-- //Frame names -->
+	<remap from="map" to="mapcurrent" />
+    <param name="map_frame" value="mapcurrent_frame" />
+    <param name="base_frame" value="$(arg base_frame)" />
+    <param name="odom_frame" value="$(arg odom_frame)" />
+    
+    <!-- //Tf use -->
+    <param name="use_tf_scan_transformation" value="true"/>
+    <param name="use_tf_pose_start_estimate" value="false"/>
+    <param name="pub_map_odom_transform" value="$(arg pub_map_odom_transform)"/>
+    
+    <!-- //Map size / start point -->
+    <param name="map_resolution" value="0.050"/>
+    <param name="map_size" value="$(arg map_size)"/>
+    <param name="map_start_x" value="0.5"/>
+    <param name="map_start_y" value="0.5" />
+    <param name="map_multi_res_levels" value="2" />
+    
+    <!-- //Map update parameters -->
+    <param name="update_factor_free" value="0.4"/>
+    <param name="update_factor_occupied" value="0.9" />    
+    <param name="map_update_distance_thresh" value="0.4"/>
+    <param name="map_update_angle_thresh" value="0.06" />
+    <param name="laser_z_min_value" value = "-1.0" />
+    <param name="laser_z_max_value" value = "1.0" />
+    
+    <!-- //Advertising config  -->
+    <param name="advertise_map_service" value="true"/>
+    
+    <param name="scan_subscriber_queue_size" value="$(arg scan_subscriber_queue_size)"/>
+    <param name="scan_topic" value="$(arg scan_topic)"/>
+    
+    <!-- //Debug parameters  -->
+      <param name="output_timing" value="false"/>
+      <param name="pub_drawings" value="true"/>
+      <param name="pub_debug_output" value="true"/>
+   
+    <!-- <param name="tf_map_scanmatch_transform_frame_name" value="$(arg odom_frame)" /> -->
+  </node>
+    
+
+	
+		<!-- //AMCL stuff. -->
+	<arg name="initial_pose_x" default="0.0"/>
+  <arg name="initial_pose_y" default="0.0"/>
+  <arg name="initial_pose_a" default="0.0"/>
+
+	<node pkg="amcl" type="amcl" name="amcl">
+
+    <!-- General params-->
+    <param name="min_particles"             value="500"/>
+    <param name="max_particles"             value="3000"/>
+    <param name="kld_err"                   value="0.02"/>
+    <param name="update_min_d"              value="0.20"/>
+    <param name="update_min_a"              value="0.20"/>
+    <param name="resample_interval"         value="1"/>
+    <param name="transform_tolerance"       value="0.5"/>
+    <param name="recovery_alpha_slow"       value="0.00"/>
+    <param name="recovery_alpha_fast"       value="0.00"/>
+    <param name="initial_pose_x"            value="$(arg initial_pose_x)"/>
+    <param name="initial_pose_y"            value="$(arg initial_pose_y)"/>
+    <param name="initial_pose_a"            value="$(arg initial_pose_a)"/>
+    <param name="gui_publish_rate"          value="50.0"/>
+
+    <!-- TF params -->
+		<param name="tf_broadcast" value="true" />
+		<param name="base_frame_id" value="base_scan" />
+		<param name="global_frame_id" value="map" />
+		<param name="odom_frame_id" value="odom" />
+		<param name="use_map_topic" value="false" />
+
+    
+
+    <!-- Odom Params -->
+	    <param name="odom_model_type"           value="diff"/>
+      <param name="odom_alpha1"               value="0.1"/>
+      <param name="odom_alpha2"               value="0.1"/>
+      <param name="odom_alpha3"               value="0.1"/>
+      <param name="odom_alpha4"               value="0.1"/>
+
+    <!--  -->
+      <!-- <remap from="scan"                      to="scan"/>
+      <param name="laser_max_range"           value="3.5"/>
+      <param name="laser_max_beams"           value="180"/>
+      <param name="laser_z_hit"               value="0.5"/>
+      <param name="laser_z_short"             value="0.05"/>
+      <param name="laser_z_max"               value="0.05"/>
+      <param name="laser_z_rand"              value="0.5"/>
+      <param name="laser_sigma_hit"           value="0.2"/>
+      <param name="laser_lambda_short"        value="0.1"/>
+      <param name="laser_likelihood_max_dist" value="2.0"/>
+      <param name="laser_model_type"          value="likelihood_field"/> -->
+
+
+
+	    <remap from="scan" to="scan" />
+      <param name="laser_max_beams" value="30"/>
+	    <param name="laser_max_range" value="29.5"/>
+	    <param name="laser_z_hit" value="0.95"/>
+	    <param name="laser_z_short" value="0.1"/>
+	    <param name="laser_z_max" value="0.05"/>
+	    <param name="laser_z_rand" value="0.05"/>
+	    <param name="laser_sigma_hit" value="0.2"/>
+	    <param name="laser_lambda_short" value="0.1"/>
+	    <param name="laser_model_type" value="likelihood_field"/>
+	    <param name="laser_likelihood_max_dist" value="2.0"/>
+	    <param name="update_min_a" value="0.5"/>
+	    <param name="resample_interval" value="2"/>
+	    <param name="transform_tolerance" value="0.1"/>
+	    <param name="recovery_alpha_slow" value="0.0"/>
+	    <param name="recovery_alpha_fast" value="0.0"/>
+	  </node> 
+
+<!-- //MOVEMENT -->
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+    <rosparam file="$(find lidarbot)/costmap_common_params.yaml" command="load" ns="global_costmap" /> 
+    <rosparam file="$(find lidarbot)/costmap_common_params.yaml" command="load" ns="local_costmap" />
+    <rosparam file="$(find lidarbot)/local_costmap_params.yaml" command="load" />
+    <rosparam file="$(find lidarbot)/global_costmap_params.yaml" command="load" /> 
+    <!-- //Use DWA Local planner instead of base one -->
+    <rosparam file="$(find lidarbot)/dwa_local_planner_params.yaml" command="load" />
+  </node>
+
+  
+
+
+	<!-- Run odom transformer. Credit goes to https://github.com/ne0h/hmmwv/blob/master/ros_workspace/src/hmmwv/launch/odomtransformer.launch -->
+    <!-- <include file="$(find lidarbot)/launch/odomtransformer.launch"/>
+    -->
+</launch>
+
